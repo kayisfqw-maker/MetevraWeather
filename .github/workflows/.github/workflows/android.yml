@@ -49,7 +49,9 @@ jobs:
         run: |
           SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
 
-          yes | "$SDKMANAGER" --sdk_root="$ANDROID_SDK_ROOT" --licenses || true
+          yes | "$SDKMANAGER" \
+            --sdk_root="$ANDROID_SDK_ROOT" \
+            --licenses || true
 
           "$SDKMANAGER" \
             --sdk_root="$ANDROID_SDK_ROOT" \
@@ -57,7 +59,10 @@ jobs:
             "platforms;android-36" \
             "build-tools;37.0.0"
 
-          "$ANDROID_SDK_ROOT/build-tools/37.0.0/aidl" --help >/dev/null
+          test -x "$ANDROID_SDK_ROOT/build-tools/37.0.0/aidl"
+
+          "$ANDROID_SDK_ROOT/build-tools/37.0.0/aidl" \
+            --help >/dev/null
 
           echo "ANDROID SDK OK"
           echo "AIDL OK"
@@ -65,42 +70,47 @@ jobs:
       - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip
-          python -m pip install buildozer==1.6.0
-          python -m pip install cython==0.29.37
 
+          python -m pip install \
+            buildozer==1.6.0 \
+            cython==0.29.37
+
+          echo "Python:"
           python --version
+
+          echo "Buildozer:"
           buildozer --version
 
-      - name: Clone pinned python-for-android
+      - name: Clone python-for-android
         run: |
-          rm -rf "$GITHUB_WORKSPACE/python-for-android"
+          P4A="$GITHUB_WORKSPACE/python-for-android"
+
+          rm -rf "$P4A"
 
           git clone \
-            --branch v2024.01.21 \
             --depth 1 \
+            --branch v2024.01.21 \
             https://github.com/kivy/python-for-android.git \
-            "$GITHUB_WORKSPACE/python-for-android"
+            "$P4A"
 
-          cd "$GITHUB_WORKSPACE/python-for-android"
+          cd "$P4A"
 
           echo "P4A VERSION:"
           git describe --tags --always
 
           echo "PYTHON RECIPE:"
           grep "version =" \
-            pythonforandroid/recipes/python3/__init__.py | head -1
+            pythonforandroid/recipes/python3/__init__.py \
+            | head -1
 
-      - name: Prepare Buildozer
+      - name: Prepare Buildozer SDK
         working-directory: metevra_weather
         run: |
-          rm -rf .buildozer
-
-          mkdir -p "$HOME/.buildozer/android/platform/android-sdk/tools/bin"
-
           BUILD_SDK="$HOME/.buildozer/android/platform/android-sdk"
           SYSTEM_SDK="$ANDROID_SDK_ROOT"
 
           rm -rf "$BUILD_SDK"
+
           mkdir -p "$BUILD_SDK/tools/bin"
 
           for item in "$SYSTEM_SDK"/*; do
@@ -123,28 +133,87 @@ EOF
 
           echo "BUILD SDK READY"
 
-      - name: Configure pinned P4A
+      - name: Configure Buildozer
         working-directory: metevra_weather
         run: |
-          if grep -q "^p4a.source_dir" buildozer.spec; then
-            sed -i \
-              "s|^p4a.source_dir.*|p4a.source_dir = $GITHUB_WORKSPACE/python-for-android|" \
-              buildozer.spec
-          else
-            cat >> buildozer.spec <<EOF
+          P4A="$GITHUB_WORKSPACE/python-for-android"
 
-          [buildozer]
-          log_level = 2
-          warn_on_root = 1
-          p4a.source_dir = $GITHUB_WORKSPACE/python-for-android
-          EOF
-          fi
+          python - "$P4A" <<'PY'
+from pathlib import Path
+import sys
+
+spec = Path("buildozer.spec")
+p4a = sys.argv[1]
+
+text = spec.read_text(encoding="utf-8")
+
+lines = []
+
+for line in text.splitlines():
+    if not line.strip().startswith("p4a.source_dir"):
+        lines.append(line)
+
+text = "\n".join(lines).rstrip() + "\n"
+
+if "[buildozer]" not in text:
+    text += "\n[buildozer]\n"
+    text += "log_level = 2\n"
+    text += "warn_on_root = 1\n"
+
+lines = text.splitlines()
+output = []
+inside_buildozer = False
+inserted = False
+
+for line in lines:
+    stripped = line.strip()
+
+    if stripped.startswith("[") and stripped.endswith("]"):
+        inside_buildozer = stripped == "[buildozer]"
+
+    output.append(line)
+
+    if inside_buildozer and stripped == "warn_on_root = 1":
+        output.append("p4a.source_dir = " + p4a)
+        inserted = True
+
+if not inserted:
+    output = []
+    for line in lines:
+        output.append(line)
+
+        if line.strip() == "[buildozer]":
+            output.append("p4a.source_dir = " + p4a)
+            inserted = True
+
+spec.write_text(
+    "\n".join(output).rstrip() + "\n",
+    encoding="utf-8"
+)
+PY
 
           echo "================================"
-          echo "BUILDOZER SPEC"
+          echo "BUILDOVER SPEC"
           echo "================================"
 
           cat buildozer.spec
+
+      - name: Verify configuration
+        working-directory: metevra_weather
+        run: |
+          echo "P4A SOURCE:"
+          grep "^p4a.source_dir" buildozer.spec
+
+          echo "P4A PYTHON:"
+          grep "version =" \
+            "$GITHUB_WORKSPACE/python-for-android/pythonforandroid/recipes/python3/__init__.py" \
+            | head -1
+
+          echo "AIDL:"
+          "$ANDROID_SDK_ROOT/build-tools/37.0.0/aidl" \
+            --help >/dev/null
+
+          echo "CONFIGURATION OK"
 
       - name: Build APK
         working-directory: metevra_weather
@@ -162,11 +231,6 @@ EOF
           echo "Buildozer:"
           buildozer --version
 
-          echo "P4A:"
-          grep "version =" \
-            "$GITHUB_WORKSPACE/python-for-android/pythonforandroid/recipes/python3/__init__.py" \
-            | head -1
-
           echo "Starting Buildozer..."
 
           buildozer -v android debug
@@ -175,13 +239,13 @@ EOF
         if: always()
         run: |
           echo "================================"
-          echo "APK / AAB FILES"
+          echo "GENERATED APK / AAB"
           echo "================================"
 
           find "$GITHUB_WORKSPACE" \
             -type f \
             \( -name "*.apk" -o -name "*.aab" \) \
-            -print
+            -print || true
 
       - name: Upload APK
         if: success()
