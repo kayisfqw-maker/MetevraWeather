@@ -1,102 +1,175 @@
-name: Metevra Weather Android
+name: Build Metevra Weather Android
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  build:
+  build-android:
     runs-on: ubuntu-22.04
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Java
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Linux packages
-        run: sudo apt-get update && sudo apt-get install -y build-essential git zip unzip autoconf automake libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libffi-dev libssl-dev cmake rsync
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git \
+            zip \
+            unzip \
+            openjdk-17-jdk \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            cmake \
+            ninja-build \
+            ccache \
+            libltdl-dev \
+            libffi-dev \
+            libssl-dev \
+            zlib1g-dev \
+            libjpeg-dev \
+            libpng-dev
 
-      - name: Android SDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Android packages
+      - name: Accept Android licenses
         run: |
-          sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-36" "build-tools;37.0.0"
-          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses || true
-          "$ANDROID_SDK_ROOT/build-tools/37.0.0/aidl" --help
-          echo "ANDROID SDK OK"
+          yes | sdkmanager --licenses || true
 
-      - name: Buildozer
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager "platform-tools"
+          sdkmanager "platforms;android-36"
+          sdkmanager "build-tools;37.0.0"
+          sdkmanager "ndk;25.1.8937393"
+
+      - name: Verify Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+
+          test -d "$ANDROID_SDK_ROOT/platform-tools"
+          test -d "$ANDROID_SDK_ROOT/platforms/android-36"
+          test -f "$ANDROID_SDK_ROOT/build-tools/37.0.0/aidl"
+
+          "$ANDROID_SDK_ROOT/build-tools/37.0.0/aidl" --help >/dev/null
+
+          echo "Android SDK OK"
+          echo "AIDL OK"
+
+      - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip
-          python -m pip install buildozer==1.6.0 cython==0.29.37
-          python --version
-          buildozer --version
+          python -m pip install buildozer==1.6.0
+          python -m pip install cython==0.29.37
 
-      - name: Python for Android
+      - name: Clone pinned python-for-android
         run: |
           rm -rf "$GITHUB_WORKSPACE/python-for-android"
-          git clone --depth 1 --branch v2024.01.21 https://github.com/kivy/python-for-android.git "$GITHUB_WORKSPACE/python-for-android"
-          echo "P4A:"
-          git -C "$GITHUB_WORKSPACE/python-for-android" describe --tags --always
-          echo "Python recipe:"
-          grep "version =" "$GITHUB_WORKSPACE/python-for-android/pythonforandroid/recipes/python3/__init__.py" | head -1
 
-      - name: Buildozer SDK fix
-        working-directory: metevra_weather
+          git clone \
+            --depth 1 \
+            --branch v2024.01.21 \
+            https://github.com/kivy/python-for-android.git \
+            "$GITHUB_WORKSPACE/python-for-android"
+
+          cd "$GITHUB_WORKSPACE/python-for-android"
+
+          python -m pip install -r requirements.txt || true
+
+          python -m pythonforandroid.toolchain --version
+
+      - name: Prepare Buildozer Android directories
         run: |
+          mkdir -p "$HOME/.buildozer/android/platform"
+
           rm -rf "$HOME/.buildozer/android/platform/android-sdk"
-          mkdir -p "$HOME/.buildozer/android/platform/android-sdk/tools/bin"
-          ln -s "$ANDROID_SDK_ROOT/platform-tools" "$HOME/.buildozer/android/platform/android-sdk/platform-tools"
-          ln -s "$ANDROID_SDK_ROOT/platforms" "$HOME/.buildozer/android/platform/android-sdk/platforms"
-          ln -s "$ANDROID_SDK_ROOT/build-tools" "$HOME/.buildozer/android/platform/android-sdk/build-tools"
-          ln -s "$ANDROID_SDK_ROOT/cmdline-tools" "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools"
-          printf '%s\n' '#!/bin/sh' 'exec "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "$@"' > "$HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager"
-          chmod +x "$HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager"
-          "$HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager" --version
-          echo "SDKMANAGER OK"
+          ln -s "$ANDROID_SDK_ROOT" \
+            "$HOME/.buildozer/android/platform/android-sdk"
 
-      - name: P4A configuration
-        working-directory: metevra_weather
+          rm -rf "$HOME/.buildozer/android/platform/android-ndk-r25b"
+
+          mkdir -p "$HOME/.buildozer/android/platform"
+
+          ln -s "$ANDROID_SDK_ROOT/ndk/25.1.8937393" \
+            "$HOME/.buildozer/android/platform/android-ndk-r25b"
+
+          echo "Buildozer Android platform:"
+          ls -la "$HOME/.buildozer/android/platform"
+
+      - name: Verify buildozer.spec
         run: |
-          sed -i '/^p4a.source_dir/d' buildozer.spec
-          sed -i '/^\[buildozer\]/a p4a.source_dir = /home/runner/work/MetevraWeather/MetevraWeather/python-for-android' buildozer.spec
-          echo "P4A SOURCE:"
-          grep "p4a.source_dir" buildozer.spec
-          echo "BUILD SPEC:"
+          echo "===== buildozer.spec ====="
           cat buildozer.spec
+          echo "=========================="
+
+          grep -q \
+            "python3==3.11.5" \
+            buildozer.spec
+
+          grep -q \
+            "android.archs = arm64-v8a" \
+            buildozer.spec
+
+          grep -q \
+            "android.ndk = 25b" \
+            buildozer.spec
+
+          echo "buildozer.spec OK"
+
+      - name: Clean previous Buildozer data
+        run: |
+          rm -rf .buildozer
+          rm -rf bin
+          mkdir -p bin
 
       - name: Build APK
-        working-directory: metevra_weather
+        env:
+          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+          ANDROIDNDK: "$HOME/.buildozer/android/platform/android-ndk-r25b"
+          ANDROID_NDK_HOME: "$HOME/.buildozer/android/platform/android-ndk-r25b"
         run: |
-          echo "===== METEVRA WEATHER ====="
-          echo "Python:"
-          python --version
-          echo "Buildozer:"
-          buildozer --version
-          echo "P4A:"
-          grep "p4a.source_dir" buildozer.spec
-          echo "BUILD START"
+          export ANDROID_HOME="$ANDROID_SDK_ROOT"
+          export ANDROID_SDK_ROOT="$ANDROID_SDK_ROOT"
+
           buildozer -v android debug
 
-      - name: Find APK
+      - name: Show generated files
         if: always()
-        run: find "$GITHUB_WORKSPACE" -type f \( -name "*.apk" -o -name "*.aab" \) -print
+        run: |
+          echo "===== BIN ====="
+          find bin -maxdepth 2 -type f -print || true
+
+          echo "===== AAB/APK ====="
+          find . \
+            -type f \
+            \( -name "*.apk" -o -name "*.aab" \) \
+            -print || true
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Metevra-Weather-APK
-          path: metevra_weather/bin/*.apk
+          path: |
+            bin/*.apk
+            bin/*.aab
           if-no-files-found: error
