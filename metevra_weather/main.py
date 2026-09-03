@@ -25,6 +25,12 @@ from kivy.metrics import dp, sp
 from kivy.core.text import LabelBase
 from kivy.utils import get_color_from_hex, platform as KIVY_PLATFORM
 
+# Google Play Licensing public key
+# Bu anahtar public key'dir; gizli değildir.
+BASE64_PUBLIC_KEY = (
+    "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuXq8HfBimcZ9/C8eA+Bk+widnJbQrYYIVk4sRg12wsaJhqUZnK+IhftKp95m7dy9YcFsSHelsyJFRRwKEKLVbLcbD8woUpiIpIDwwmMacoUAms8JxxwFa1mmY9biANW0sEn8laJ4NGqm1t1vpuibX+1NdTiP/q0kpL+nsL3xVa+AMULieH275UESxlradVnkS8jIko46FJQMquwffapuGExc4b8Xcgfs0ZFLt+L/8BRu3dDYUt7QJ1JPhZbn8i36e6C+DrNZ3/f4MYvNhGmVoC2A354t6di8pvmxChFmmdrTDIPv6bDcTxQfw19bJACrJDTLAkuSxF+eljgxwFZsMQIDAQAB"
+)
+
 # Android konum izni: GPS başlatılmadan önce çalışma zamanı iznini ister.
 # Windows/iOS tarafında bu import kullanılmaz.
 def _request_android_location_permission(callback):
@@ -137,21 +143,9 @@ class ModernButton(Button):
 # PENCERE
 # ============================================================
 
-# ============================================================
-# PENCERE / ANDROID RESPONSIVE
-# ============================================================
-if KIVY_PLATFORM != "android":
-    Window.size = (1100, 700)
-    Window.minimum_width = 800
-    Window.minimum_height = 500
-
-Window.clearcolor = get_color_from_hex("#07101C")
-else:
-    # Windows geliştirme ekranı
-    Window.size = (1100, 700)
-    Window.minimum_width = 800
-    Window.minimum_height = 500
-
+Window.size = (380, 670)
+Window.minimum_width = 320
+Window.minimum_height = 560
 Window.clearcolor = get_color_from_hex("#07101C")
 
 
