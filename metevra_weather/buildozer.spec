@@ -24,15 +24,12 @@ presplash.color = #07111F
 
 android.api = 36
 android.minapi = 23
-
 android.ndk = 25b
 android.archs = arm64-v8a
 
 android.allow_backup = True
-
 android.debug_artifact = apk
 android.release_artifact = aab
-
 android.numeric_version = 10000
 
 android.permissions = INTERNET,ACCESS_COARSE_LOCATION,ACCESS_FINE_LOCATION
