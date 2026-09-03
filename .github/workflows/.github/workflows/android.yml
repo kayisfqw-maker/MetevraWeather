@@ -16,9 +16,9 @@ jobs:
         uses: actions/checkout@v4
 
 
-      # ---------------------------------------------------------
+      # =========================================================
       # PYTHON
-      # ---------------------------------------------------------
+      # =========================================================
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -26,9 +26,9 @@ jobs:
           python-version: "3.12"
 
 
-      # ---------------------------------------------------------
+      # =========================================================
       # JAVA
-      # ---------------------------------------------------------
+      # =========================================================
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -37,9 +37,9 @@ jobs:
           java-version: "17"
 
 
-      # ---------------------------------------------------------
+      # =========================================================
       # LINUX DEPENDENCIES
-      # ---------------------------------------------------------
+      # =========================================================
 
       - name: Install system dependencies
         run: |
@@ -68,9 +68,9 @@ jobs:
             gettext
 
 
-      # ---------------------------------------------------------
+      # =========================================================
       # ANDROID SDK
-      # ---------------------------------------------------------
+      # =========================================================
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -89,9 +89,9 @@ jobs:
           sdkmanager "ndk;25.1.8937393"
 
 
-      # ---------------------------------------------------------
+      # =========================================================
       # VERIFY SDK
-      # ---------------------------------------------------------
+      # =========================================================
 
       - name: Verify Android SDK
         run: |
@@ -107,12 +107,12 @@ jobs:
           test -d "$ANDROID_SDK_ROOT/build-tools/37.0.0"
           test -d "$ANDROID_SDK_ROOT/ndk/25.1.8937393"
 
-          echo "SDK OK"
+          echo "ANDROID SDK OK"
 
 
-      # ---------------------------------------------------------
+      # =========================================================
       # VERIFY AIDL
-      # ---------------------------------------------------------
+      # =========================================================
 
       - name: Verify AIDL
         run: |
@@ -121,9 +121,9 @@ jobs:
           echo "AIDL OK"
 
 
-      # ---------------------------------------------------------
-      # PYTHON PACKAGING TOOLS
-      # ---------------------------------------------------------
+      # =========================================================
+      # BUILDOZER
+      # =========================================================
 
       - name: Install Buildozer
         run: |
@@ -134,10 +134,9 @@ jobs:
             cython==0.29.37
 
 
-      # ---------------------------------------------------------
+      # =========================================================
       # PYTHON-FOR-ANDROID
-      # PINNED TO 2024.01.21
-      # ---------------------------------------------------------
+      # =========================================================
 
       - name: Clone pinned python-for-android
         run: |
@@ -151,20 +150,10 @@ jobs:
 
           cd "$GITHUB_WORKSPACE/python-for-android"
 
-          echo "======================================"
-          echo "P4A COMMIT"
-          echo "======================================"
-
-          git rev-parse HEAD
-
-          echo "======================================"
-          echo "INSTALL P4A DEPENDENCIES"
-          echo "======================================"
-
           python -m pip install \
             appdirs \
             colorama \
-            "jinja2" \
+            jinja2 \
             "sh>=1.10,<2.0" \
             build \
             toml \
@@ -181,16 +170,16 @@ jobs:
           python -m pythonforandroid.toolchain --version
 
 
-      # ---------------------------------------------------------
-      # CHECK P4A PYTHON RECIPE
-      # ---------------------------------------------------------
+      # =========================================================
+      # VERIFY P4A PYTHON VERSION
+      # =========================================================
 
-      - name: Verify Python 3.11 recipe
+      - name: Verify Python 3.11.5 recipe
         run: |
           cd "$GITHUB_WORKSPACE/python-for-android"
 
           echo "======================================"
-          echo "PYTHON RECIPE VERSION"
+          echo "P4A PYTHON RECIPE"
           echo "======================================"
 
           grep -n "version =" \
@@ -198,60 +187,17 @@ jobs:
             | head -5
 
           echo "======================================"
-          echo "HOST PYTHON RECIPE VERSION"
+          echo "HOST PYTHON RECIPE"
           echo "======================================"
 
           grep -n "version =" \
             pythonforandroid/recipes/hostpython3/__init__.py \
             | head -5
 
-          grep -q "version = '3.11.5'" \
-            pythonforandroid/recipes/python3/__init__.py
 
-          grep -q "version = '3.11.5'" \
-            pythonforandroid/recipes/hostpython3/__init__.py
-
-          echo "Python 3.11.5 recipe confirmed"
-
-
-      # ---------------------------------------------------------
-      # BUILD0ZER SPEC CHECK
-      # ---------------------------------------------------------
-
-      - name: Verify buildozer.spec
-        run: |
-          echo "======================================"
-          echo "BUILDOZER SPEC"
-          echo "======================================"
-
-          cat buildozer.spec
-
-          echo "======================================"
-          echo "CHECKS"
-          echo "======================================"
-
-          grep -q \
-            "requirements = python3,kivy==2.3.1,requests,pillow" \
-            buildozer.spec
-
-          grep -q \
-            "android.archs = arm64-v8a" \
-            buildozer.spec
-
-          grep -q \
-            "android.ndk = 25b" \
-            buildozer.spec
-
-          grep -q \
-            "p4a.source_dir" \
-            buildozer.spec
-
-          echo "buildozer.spec OK"
-
-
-      # ---------------------------------------------------------
-      # PREPARE BUILDOZER DIRECTORIES
-      # ---------------------------------------------------------
+      # =========================================================
+      # PREPARE BUILDOZER SDK
+      # =========================================================
 
       - name: Prepare Buildozer Android directories
         run: |
@@ -281,21 +227,81 @@ jobs:
             "$HOME/.buildozer/android/platform"
 
 
-      # ---------------------------------------------------------
-      # CLEAN BUILD
-      # ---------------------------------------------------------
+      # =========================================================
+      # CHECK PROJECT STRUCTURE
+      # =========================================================
+
+      - name: Check Metevra project
+        working-directory: metevra_weather
+        run: |
+          echo "======================================"
+          echo "METEVRA WEATHER PROJECT"
+          echo "======================================"
+
+          pwd
+
+          echo ""
+          echo "FILES:"
+          find . -maxdepth 2 -type f | sort
+
+          echo ""
+          echo "BUILDOZER SPEC:"
+          test -f buildozer.spec
+
+          cat buildozer.spec
+
+          echo ""
+          echo "PROJECT OK"
+
+
+      # =========================================================
+      # VERIFY BUILDOZER SPEC
+      # =========================================================
+
+      - name: Verify Buildozer configuration
+        working-directory: metevra_weather
+        run: |
+          echo "======================================"
+          echo "VERIFY BUILDOZER"
+          echo "======================================"
+
+          grep -q \
+            "requirements = python3,kivy==2.3.1,requests,pillow" \
+            buildozer.spec
+
+          grep -q \
+            "android.archs = arm64-v8a" \
+            buildozer.spec
+
+          grep -q \
+            "android.ndk = 25b" \
+            buildozer.spec
+
+          grep -q \
+            "p4a.source_dir" \
+            buildozer.spec
+
+          echo "buildozer.spec OK"
+
+
+      # =========================================================
+      # CLEAN OLD BUILD
+      # =========================================================
 
       - name: Clean Buildozer
+        working-directory: metevra_weather
         run: |
           rm -rf .buildozer
           rm -rf bin
 
           mkdir -p bin
 
+          echo "Buildozer cache cleaned."
 
-      # ---------------------------------------------------------
-      # FORCE ENVIRONMENT
-      # ---------------------------------------------------------
+
+      # =========================================================
+      # CONFIGURE ENVIRONMENT
+      # =========================================================
 
       - name: Configure Android environment
         run: |
@@ -303,6 +309,7 @@ jobs:
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
 
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/25.1.8937393" >> "$GITHUB_ENV"
+
           echo "ANDROIDNDK=$ANDROID_SDK_ROOT/ndk/25.1.8937393" >> "$GITHUB_ENV"
 
           echo "P4A_PATH=$GITHUB_WORKSPACE/python-for-android" >> "$GITHUB_ENV"
@@ -310,9 +317,9 @@ jobs:
           echo "CMAKE_POLICY_VERSION_MINIMUM=3.5" >> "$GITHUB_ENV"
 
 
-      # ---------------------------------------------------------
-      # VERIFY ENVIRONMENT
-      # ---------------------------------------------------------
+      # =========================================================
+      # FINAL ENVIRONMENT CHECK
+      # =========================================================
 
       - name: Verify final environment
         run: |
@@ -326,47 +333,55 @@ jobs:
           echo "ANDROIDNDK=$ANDROIDNDK"
           echo "P4A_PATH=$P4A_PATH"
 
-          echo "======================================"
-          echo "P4A LOCATION"
-          echo "======================================"
+          echo ""
+          echo "P4A FILE:"
 
-          test -f "$P4A_PATH/pythonforandroid/toolchain.py"
+          test -f \
+            "$P4A_PATH/pythonforandroid/toolchain.py"
 
           echo "P4A source OK"
 
-          echo "======================================"
-          echo "NDK"
-          echo "======================================"
 
-          test -f "$ANDROID_NDK_HOME/source.properties"
-
-          cat "$ANDROID_NDK_HOME/source.properties"
-
-
-      # ---------------------------------------------------------
-      # BUILD
-      # ---------------------------------------------------------
+      # =========================================================
+      # BUILD APK
+      # =========================================================
 
       - name: Build Metevra Weather APK
+        working-directory: metevra_weather
         env:
+          P4A_SOURCE_DIR: /home/runner/work/MetevraWeather/MetevraWeather/python-for-android
           CMAKE_POLICY_VERSION_MINIMUM: "3.5"
         run: |
           echo "======================================"
-          echo "START BUILD"
+          echo "BUILDING METEVRA WEATHER"
+          echo "======================================"
+
+          pwd
+
+          echo ""
+          echo "BUILDOZER SPEC:"
+          grep -E \
+            "^(title|package.name|package.domain|version|requirements|android.api|android.minapi|android.ndk|android.archs|p4a.source_dir)" \
+            buildozer.spec
+
+          echo ""
+          echo "======================================"
+          echo "START BUILDOZER"
           echo "======================================"
 
           buildozer -v android debug
 
 
-      # ---------------------------------------------------------
+      # =========================================================
       # SHOW RESULT
-      # ---------------------------------------------------------
+      # =========================================================
 
       - name: Show build result
         if: always()
+        working-directory: metevra_weather
         run: |
           echo "======================================"
-          echo "BIN FILES"
+          echo "BIN DIRECTORY"
           echo "======================================"
 
           find bin \
@@ -374,9 +389,9 @@ jobs:
             -type f \
             -print || true
 
-
+          echo ""
           echo "======================================"
-          echo "APK / AAB FILES"
+          echo "APK / AAB"
           echo "======================================"
 
           find . \
@@ -389,9 +404,9 @@ jobs:
             -print || true
 
 
-      # ---------------------------------------------------------
-      # UPLOAD
-      # ---------------------------------------------------------
+      # =========================================================
+      # UPLOAD APK
+      # =========================================================
 
       - name: Upload Android artifacts
         if: success()
@@ -399,6 +414,6 @@ jobs:
         with:
           name: Metevra-Weather-Android
           path: |
-            bin/*.apk
-            bin/*.aab
+            metevra_weather/bin/*.apk
+            metevra_weather/bin/*.aab
           if-no-files-found: error
