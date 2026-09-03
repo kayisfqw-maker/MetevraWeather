@@ -12,6 +12,7 @@ jobs:
         working-directory: metevra_weather
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -20,15 +21,21 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
+
           sudo apt-get install -y \
             build-essential \
             git \
             zip \
             unzip \
-            openjdk-17-jdk \
             autoconf \
             automake \
             libtool \
@@ -40,26 +47,71 @@ jobs:
             libssl-dev \
             cmake
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;35.0.0" \
+            "build-tools;37.0.0"
+
+      - name: Accept Android SDK licenses
+        run: |
+          yes | sdkmanager --licenses || true
+
+      - name: Prepare Buildozer Android SDK
+        run: |
+          SDK="$ANDROID_SDK_ROOT"
+          BUILD_SDK="$HOME/.buildozer/android/platform/android-sdk"
+
+          mkdir -p "$HOME/.buildozer/android/platform"
+
+          if [ -L "$BUILD_SDK" ] || [ -d "$BUILD_SDK" ]; then
+            rm -rf "$BUILD_SDK"
+          fi
+
+          ln -s "$SDK" "$BUILD_SDK"
+
+          mkdir -p "$SDK/tools/bin"
+
+          if [ -f "$SDK/cmdline-tools/latest/bin/sdkmanager" ]; then
+            ln -sf "$SDK/cmdline-tools/latest/bin/sdkmanager" \
+              "$SDK/tools/bin/sdkmanager"
+          fi
+
+          chmod +x "$SDK/tools/bin/sdkmanager"
+
+          echo "ANDROID_SDK_ROOT=$SDK"
+          echo "SDKMANAGER:"
+          "$SDK/tools/bin/sdkmanager" --version
+
       - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip
           python -m pip install buildozer==1.6.0
           python -m pip install cython==0.29.37
 
-      - name: Prepare Android SDK licenses
+      - name: Show Android environment
         run: |
-          mkdir -p "$HOME/.android"
-          mkdir -p "$HOME/.buildozer/android/platform/android-sdk/licenses"
-
-          echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > \
-            "$HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license"
-
-          echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> \
-            "$HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license"
+          echo "JAVA_HOME=$JAVA_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          java -version
+          python --version
+          buildozer --version
 
       - name: Build APK
         run: |
           buildozer -v android debug
+
+      - name: List generated files
+        if: always()
+        run: |
+          echo "===== BIN ====="
+          ls -lah bin || true
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
