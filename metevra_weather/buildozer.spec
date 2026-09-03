@@ -5,7 +5,7 @@ package.name = weather
 package.domain = com.metevra
 
 source.dir = .
-source.main = main.py
+source.main = MetevraWeather.py
 
 source.include_exts = py,png,jpg,jpeg,otf,ico,txt,webp
 source.exclude_dirs = .venv,.git,dist,build,__pycache__,bin,.buildozer
