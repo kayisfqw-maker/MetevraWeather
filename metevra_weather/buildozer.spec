@@ -12,7 +12,7 @@ source.exclude_patterns = *.pyc,*.pyo
 
 version = 1.0.0
 
-requirements = python3==3.11.5,kivy==2.3.1,requests,pillow
+requirements = python3,kivy==2.3.1,requests,pillow
 
 orientation = landscape
 fullscreen = 0
@@ -24,6 +24,7 @@ presplash.color = #07111F
 
 android.api = 36
 android.minapi = 23
+
 android.ndk = 25b
 android.archs = arm64-v8a
 
