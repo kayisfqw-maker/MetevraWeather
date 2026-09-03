@@ -51,45 +51,27 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Show Android SDK
-        run: |
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          which sdkmanager
-          sdkmanager --version
-
       - name: Accept Android licenses
         run: |
           yes | sdkmanager --licenses || true
 
-      - name: Install Android packages
+      - name: Install Android SDK packages
         run: |
           sdkmanager \
             "platform-tools" \
             "platforms;android-36" \
-            "build-tools;35.0.0" \
             "build-tools;37.0.0"
 
-      - name: Prepare Buildozer SDK compatibility
+      - name: Prepare Buildozer SDK
         run: |
           SYSTEM_SDK="$ANDROID_SDK_ROOT"
           BUILD_SDK="$HOME/.buildozer/android/platform/android-sdk"
 
-          echo "System SDK:"
-          echo "$SYSTEM_SDK"
-
-          echo "Buildozer SDK:"
-          echo "$BUILD_SDK"
-
           mkdir -p "$HOME/.buildozer/android/platform"
 
-          # Buildozer'ın eski sdkmanager yolunu kullanabilmesi için
-          # kendi yazılabilir SDK klasörünü oluşturuyoruz.
           rm -rf "$BUILD_SDK"
           mkdir -p "$BUILD_SDK"
 
-          # Android SDK'nın ana klasörlerini Buildozer klasörüne
-          # sembolik bağlantı olarak ekle.
           for item in "$SYSTEM_SDK"/*; do
             name="$(basename "$item")"
 
@@ -98,19 +80,16 @@ jobs:
             fi
           done
 
-          # Buildozer eski command-line-tools yolunu arıyor.
           mkdir -p "$BUILD_SDK/tools/bin"
 
-          # Sistem sdkmanager'ını çağıran yerel wrapper.
           cat > "$BUILD_SDK/tools/bin/sdkmanager" <<EOF
-          #!/bin/sh
-          exec "$SYSTEM_SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SYSTEM_SDK" "\$@"
-          EOF
+#!/bin/sh
+exec "$SYSTEM_SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SYSTEM_SDK" "\$@"
+EOF
 
-          # Sadece bizim oluşturduğumuz wrapper'a çalıştırma izni ver.
           chmod +x "$BUILD_SDK/tools/bin/sdkmanager"
 
-          echo "Buildozer sdkmanager:"
+          echo "SDKMANAGER:"
           "$BUILD_SDK/tools/bin/sdkmanager" --version
 
       - name: Install Buildozer
@@ -119,22 +98,31 @@ jobs:
           python -m pip install buildozer==1.6.0
           python -m pip install cython==0.29.37
 
-      - name: Show build environment
+      # IMPORTANT:
+      # Force Buildozer to use a compatible python-for-android release.
+      - name: Download compatible python-for-android
         run: |
-          echo "===== JAVA ====="
-          java -version
+          rm -rf "$HOME/.buildozer/android/platform/python-for-android"
 
-          echo "===== PYTHON ====="
-          python --version
+          git clone \
+            --branch v2024.01.21 \
+            --depth 1 \
+            https://github.com/kivy/python-for-android.git \
+            "$HOME/.buildozer/android/platform/python-for-android"
 
-          echo "===== CYTHON ====="
-          cython --version
+      - name: Verify python-for-android version
+        run: |
+          cd "$HOME/.buildozer/android/platform/python-for-android"
 
-          echo "===== BUILDOZER ====="
-          buildozer --version
+          echo "===== P4A VERSION ====="
+          git describe --tags --always || true
 
-          echo "===== SDKMANAGER ====="
-          "$HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager" --version
+          echo "===== PYTHON RECIPE ====="
+          grep -n "version =" pythonforandroid/recipes/python3/__init__.py | head -5
+
+      - name: Clean old Buildozer platform
+        run: |
+          rm -rf .buildozer/android/platform/build-arm64-v8a_armeabi-v7a
 
       - name: Build APK
         run: |
@@ -143,7 +131,7 @@ jobs:
       - name: List generated files
         if: always()
         run: |
-          echo "===== BIN DIRECTORY ====="
+          echo "===== BIN ====="
           ls -lah bin || true
 
       - name: Upload APK
