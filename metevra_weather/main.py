@@ -143,11 +143,12 @@ class ModernButton(Button):
 # PENCERE
 # ============================================================
 
-Window.size = (380, 670)
-Window.minimum_width = 320
-Window.minimum_height = 560
-Window.clearcolor = get_color_from_hex("#07101C")
+if KIVY_PLATFORM != "android":
+    Window.size = (1100, 700)
+    Window.minimum_width = 800
+    Window.minimum_height = 500
 
+Window.clearcolor = get_color_from_hex("#07101C")
 
 # ============================================================
 # DİL
