@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -54,7 +55,7 @@ jobs:
         run: |
           yes | sdkmanager --licenses || true
 
-      - name: Install Android SDK packages
+      - name: Install Android SDK
         run: |
           sdkmanager "platform-tools"
           sdkmanager "platforms;android-36"
@@ -74,6 +75,7 @@ jobs:
 
           echo "Android SDK OK"
           echo "AIDL OK"
+          echo "NDK 25b OK"
 
       - name: Install Buildozer
         run: |
@@ -93,49 +95,50 @@ jobs:
 
           cd "$GITHUB_WORKSPACE/python-for-android"
 
-          python -m pip install -r requirements.txt || true
+          python -m pip install \
+            appdirs \
+            colorama \
+            jinja2 \
+            sh \
+            build \
+            setuptools \
+            wheel \
+            six \
+            requests
 
           python -m pythonforandroid.toolchain --version
 
-      - name: Prepare Buildozer Android directories
+      - name: Prepare Buildozer directories
         run: |
           mkdir -p "$HOME/.buildozer/android/platform"
 
           rm -rf "$HOME/.buildozer/android/platform/android-sdk"
-          ln -s "$ANDROID_SDK_ROOT" \
+          ln -s \
+            "$ANDROID_SDK_ROOT" \
             "$HOME/.buildozer/android/platform/android-sdk"
 
           rm -rf "$HOME/.buildozer/android/platform/android-ndk-r25b"
 
-          mkdir -p "$HOME/.buildozer/android/platform"
-
-          ln -s "$ANDROID_SDK_ROOT/ndk/25.1.8937393" \
+          ln -s \
+            "$ANDROID_SDK_ROOT/ndk/25.1.8937393" \
             "$HOME/.buildozer/android/platform/android-ndk-r25b"
 
-          echo "Buildozer Android platform:"
+          echo "Buildozer platform:"
           ls -la "$HOME/.buildozer/android/platform"
 
       - name: Verify buildozer.spec
         run: |
-          echo "===== buildozer.spec ====="
+          echo "===== BUILD0ZER SPEC ====="
           cat buildozer.spec
           echo "=========================="
 
-          grep -q \
-            "python3==3.11.5" \
-            buildozer.spec
-
-          grep -q \
-            "android.archs = arm64-v8a" \
-            buildozer.spec
-
-          grep -q \
-            "android.ndk = 25b" \
-            buildozer.spec
+          grep -q "python3==3.11.5" buildozer.spec
+          grep -q "android.archs = arm64-v8a" buildozer.spec
+          grep -q "android.ndk = 25b" buildozer.spec
 
           echo "buildozer.spec OK"
 
-      - name: Clean previous Buildozer data
+      - name: Clean Buildozer
         run: |
           rm -rf .buildozer
           rm -rf bin
@@ -144,31 +147,31 @@ jobs:
       - name: Build APK
         env:
           CMAKE_POLICY_VERSION_MINIMUM: "3.5"
-          ANDROIDNDK: "$HOME/.buildozer/android/platform/android-ndk-r25b"
-          ANDROID_NDK_HOME: "$HOME/.buildozer/android/platform/android-ndk-r25b"
+          ANDROIDNDK: "/home/runner/.buildozer/android/platform/android-ndk-r25b"
+          ANDROID_NDK_HOME: "/home/runner/.buildozer/android/platform/android-ndk-r25b"
         run: |
           export ANDROID_HOME="$ANDROID_SDK_ROOT"
           export ANDROID_SDK_ROOT="$ANDROID_SDK_ROOT"
 
           buildozer -v android debug
 
-      - name: Show generated files
+      - name: Show build files
         if: always()
         run: |
-          echo "===== BIN ====="
+          echo "===== BIN DIRECTORY ====="
           find bin -maxdepth 2 -type f -print || true
 
-          echo "===== AAB/APK ====="
+          echo "===== APK / AAB ====="
           find . \
             -type f \
             \( -name "*.apk" -o -name "*.aab" \) \
             -print || true
 
-      - name: Upload APK
+      - name: Upload Android artifacts
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Metevra-Weather-APK
+          name: Metevra-Weather-Android
           path: |
             bin/*.apk
             bin/*.aab
