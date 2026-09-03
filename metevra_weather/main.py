@@ -137,9 +137,20 @@ class ModernButton(Button):
 # PENCERE
 # ============================================================
 
-Window.size = (380, 670)
-Window.minimum_width = 320
-Window.minimum_height = 560
+# ============================================================
+# PENCERE / ANDROID RESPONSIVE
+# ============================================================
+
+if KIVY_PLATFORM == "android":
+    # Android cihazın gerçek ekranını kendisi kullansın.
+    # Sabit 380x670 verilmez.
+    Window.fullscreen = "auto"
+else:
+    # Windows geliştirme ekranı
+    Window.size = (1100, 700)
+    Window.minimum_width = 800
+    Window.minimum_height = 500
+
 Window.clearcolor = get_color_from_hex("#07101C")
 
 
