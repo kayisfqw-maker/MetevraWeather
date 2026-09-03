@@ -45,48 +45,73 @@ jobs:
             libncursesw5-dev \
             libffi-dev \
             libssl-dev \
-            cmake
+            cmake \
+            rsync
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK packages
+      - name: Show Android SDK
         run: |
-          sdkmanager --install \
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          which sdkmanager
+          sdkmanager --version
+
+      - name: Accept Android licenses
+        run: |
+          yes | sdkmanager --licenses || true
+
+      - name: Install Android packages
+        run: |
+          sdkmanager \
             "platform-tools" \
             "platforms;android-36" \
             "build-tools;35.0.0" \
             "build-tools;37.0.0"
 
-      - name: Accept Android SDK licenses
+      - name: Prepare Buildozer SDK compatibility
         run: |
-          yes | sdkmanager --licenses || true
-
-      - name: Prepare Buildozer Android SDK
-        run: |
-          SDK="$ANDROID_SDK_ROOT"
+          SYSTEM_SDK="$ANDROID_SDK_ROOT"
           BUILD_SDK="$HOME/.buildozer/android/platform/android-sdk"
+
+          echo "System SDK:"
+          echo "$SYSTEM_SDK"
+
+          echo "Buildozer SDK:"
+          echo "$BUILD_SDK"
 
           mkdir -p "$HOME/.buildozer/android/platform"
 
-          if [ -L "$BUILD_SDK" ] || [ -d "$BUILD_SDK" ]; then
-            rm -rf "$BUILD_SDK"
-          fi
+          # Buildozer'ın eski sdkmanager yolunu kullanabilmesi için
+          # kendi yazılabilir SDK klasörünü oluşturuyoruz.
+          rm -rf "$BUILD_SDK"
+          mkdir -p "$BUILD_SDK"
 
-          ln -s "$SDK" "$BUILD_SDK"
+          # Android SDK'nın ana klasörlerini Buildozer klasörüne
+          # sembolik bağlantı olarak ekle.
+          for item in "$SYSTEM_SDK"/*; do
+            name="$(basename "$item")"
 
-          mkdir -p "$SDK/tools/bin"
+            if [ "$name" != "tools" ]; then
+              ln -s "$item" "$BUILD_SDK/$name"
+            fi
+          done
 
-          if [ -f "$SDK/cmdline-tools/latest/bin/sdkmanager" ]; then
-            ln -sf "$SDK/cmdline-tools/latest/bin/sdkmanager" \
-              "$SDK/tools/bin/sdkmanager"
-          fi
+          # Buildozer eski command-line-tools yolunu arıyor.
+          mkdir -p "$BUILD_SDK/tools/bin"
 
-          chmod +x "$SDK/tools/bin/sdkmanager"
+          # Sistem sdkmanager'ını çağıran yerel wrapper.
+          cat > "$BUILD_SDK/tools/bin/sdkmanager" <<EOF
+          #!/bin/sh
+          exec "$SYSTEM_SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SYSTEM_SDK" "\$@"
+          EOF
 
-          echo "ANDROID_SDK_ROOT=$SDK"
-          echo "SDKMANAGER:"
-          "$SDK/tools/bin/sdkmanager" --version
+          # Sadece bizim oluşturduğumuz wrapper'a çalıştırma izni ver.
+          chmod +x "$BUILD_SDK/tools/bin/sdkmanager"
+
+          echo "Buildozer sdkmanager:"
+          "$BUILD_SDK/tools/bin/sdkmanager" --version
 
       - name: Install Buildozer
         run: |
@@ -94,14 +119,22 @@ jobs:
           python -m pip install buildozer==1.6.0
           python -m pip install cython==0.29.37
 
-      - name: Show Android environment
+      - name: Show build environment
         run: |
-          echo "JAVA_HOME=$JAVA_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "===== JAVA ====="
           java -version
+
+          echo "===== PYTHON ====="
           python --version
+
+          echo "===== CYTHON ====="
+          cython --version
+
+          echo "===== BUILDOZER ====="
           buildozer --version
+
+          echo "===== SDKMANAGER ====="
+          "$HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager" --version
 
       - name: Build APK
         run: |
@@ -110,7 +143,7 @@ jobs:
       - name: List generated files
         if: always()
         run: |
-          echo "===== BIN ====="
+          echo "===== BIN DIRECTORY ====="
           ls -lah bin || true
 
       - name: Upload APK
