@@ -13,25 +13,25 @@ jobs:
 
     steps:
 
-      # ---------------------------------------------------------
-      # 1. GitHub repository
-      # ---------------------------------------------------------
+      # =========================================================
+      # 1. CHECKOUT
+      # =========================================================
       - name: Checkout
         uses: actions/checkout@v4
 
 
-      # ---------------------------------------------------------
-      # 2. Python
-      # ---------------------------------------------------------
+      # =========================================================
+      # 2. PYTHON 3.12
+      # =========================================================
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
 
-      # ---------------------------------------------------------
-      # 3. Java
-      # ---------------------------------------------------------
+      # =========================================================
+      # 3. JAVA 17
+      # =========================================================
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
@@ -39,10 +39,11 @@ jobs:
           java-version: "17"
 
 
-      # ---------------------------------------------------------
-      # 4. Linux dependencies
-      # ---------------------------------------------------------
+      # =========================================================
+      # 4. LINUX DEPENDENCIES
+      # =========================================================
       - name: Install system dependencies
+        shell: bash
         run: |
           sudo apt-get update
 
@@ -64,22 +65,25 @@ jobs:
             rsync
 
 
-      # ---------------------------------------------------------
-      # 5. Android SDK
-      # ---------------------------------------------------------
+      # =========================================================
+      # 5. ANDROID SDK
+      # =========================================================
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
 
-      # ---------------------------------------------------------
-      # 6. Accept Android licenses
-      # ---------------------------------------------------------
+      # =========================================================
+      # 6. ACCEPT ANDROID LICENSES
+      # =========================================================
       - name: Accept Android SDK licenses
         shell: bash
         run: |
           SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
 
-          echo "SDKMANAGER:"
+          echo "======================================"
+          echo "ANDROID SDK MANAGER"
+          echo "======================================"
+
           echo "$SDKMANAGER"
 
           if [ ! -f "$SDKMANAGER" ]; then
@@ -92,13 +96,15 @@ jobs:
             --licenses || true
 
 
-      # ---------------------------------------------------------
-      # 7. Install required Android packages
-      # ---------------------------------------------------------
+      # =========================================================
+      # 7. INSTALL ANDROID PACKAGES
+      # =========================================================
       - name: Install Android packages
         shell: bash
         run: |
           SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+
+          echo "Installing Android packages..."
 
           "$SDKMANAGER" \
             --sdk_root="$ANDROID_SDK_ROOT" \
@@ -107,57 +113,28 @@ jobs:
             "build-tools;37.0.0"
 
           echo ""
-          echo "===== ANDROID SDK CHECK ====="
+          echo "======================================"
+          echo "ANDROID SDK CHECK"
+          echo "======================================"
 
-          echo "SDK ROOT:"
+          echo "SDK:"
           echo "$ANDROID_SDK_ROOT"
 
           echo ""
-          echo "Build tools:"
+          echo "Build Tools:"
           ls -lah "$ANDROID_SDK_ROOT/build-tools/37.0.0"
 
           echo ""
           echo "AIDL:"
-          "$ANDROID_SDK_ROOT/build-tools/37.0.0/aidl" --help >/dev/null
+          "$ANDROID_SDK_ROOT/build-tools/37.0.0/aidl" \
+            --help >/dev/null
 
           echo "AIDL OK"
 
 
-      # ---------------------------------------------------------
-      # 8. Make Buildozer use the same Android SDK
-      # ---------------------------------------------------------
-      - name: Configure Buildozer Android SDK
-        shell: bash
-        run: |
-          BUILD_SDK="$HOME/.buildozer/android/platform/android-sdk"
-
-          mkdir -p "$HOME/.buildozer/android/platform"
-
-          rm -rf "$BUILD_SDK"
-
-          ln -s \
-            "$ANDROID_SDK_ROOT" \
-            "$BUILD_SDK"
-
-          echo ""
-          echo "===== BUILDOZER SDK ====="
-
-          ls -lah "$BUILD_SDK"
-
-          echo ""
-          echo "Build tools:"
-          ls -lah "$BUILD_SDK/build-tools/37.0.0"
-
-          echo ""
-          echo "AIDL:"
-          "$BUILD_SDK/build-tools/37.0.0/aidl" --help >/dev/null
-
-          echo "AIDL OK"
-
-
-      # ---------------------------------------------------------
-      # 9. Install Buildozer
-      # ---------------------------------------------------------
+      # =========================================================
+      # 8. INSTALL BUILDOZER
+      # =========================================================
       - name: Install Buildozer
         shell: bash
         run: |
@@ -170,20 +147,21 @@ jobs:
             cython==0.29.37
 
           echo ""
-          echo "===== BUILDOZER VERSION ====="
+          echo "======================================"
+          echo "BUILDOZER"
+          echo "======================================"
 
           buildozer --version
 
           echo ""
-          echo "===== PYTHON VERSION ====="
-
+          echo "Python:"
           python --version
 
 
-      # ---------------------------------------------------------
-      # 10. Download PINNED python-for-android
-      # ---------------------------------------------------------
-      - name: Prepare python-for-android
+      # =========================================================
+      # 9. PIN PYTHON-FOR-ANDROID
+      # =========================================================
+      - name: Prepare pinned python-for-android
         shell: bash
         run: |
           P4A_DIR="$GITHUB_WORKSPACE/python-for-android"
@@ -197,54 +175,29 @@ jobs:
             "$P4A_DIR"
 
           echo ""
-          echo "===== P4A VERSION ====="
+          echo "======================================"
+          echo "P4A VERSION"
+          echo "======================================"
 
           cd "$P4A_DIR"
 
           git describe --tags --always
 
           echo ""
-          echo "===== PYTHON RECIPE ====="
+          echo "Python recipe:"
 
           grep -n "version =" \
             pythonforandroid/recipes/python3/__init__.py \
             | head -5
 
           echo ""
-          echo "===== P4A LOCATION ====="
-
+          echo "P4A location:"
           pwd
 
 
-      # ---------------------------------------------------------
-      # 11. Verify Buildozer configuration
-      # ---------------------------------------------------------
-      - name: Verify configuration
-        shell: bash
-        run: |
-          echo ""
-          echo "===== BUILD DIRECTORY ====="
-          pwd
-
-          echo ""
-          echo "===== BUILDOZER SPEC ====="
-          cat buildozer.spec
-
-          echo ""
-          echo "===== P4A DIRECTORY ====="
-          ls -lah "$GITHUB_WORKSPACE/python-for-android"
-
-          echo ""
-          echo "===== P4A RECIPE ====="
-
-          grep -n "version =" \
-            "$GITHUB_WORKSPACE/python-for-android/pythonforandroid/recipes/python3/__init__.py" \
-            | head -5
-
-
-      # ---------------------------------------------------------
-      # 12. Clean previous Buildozer files
-      # ---------------------------------------------------------
+      # =========================================================
+      # 10. CLEAN BUILDOZER
+      # =========================================================
       - name: Clean Buildozer
         shell: bash
         run: |
@@ -253,38 +206,175 @@ jobs:
           echo "Buildozer cache cleaned."
 
 
-      # ---------------------------------------------------------
-      # 13. Build APK
-      # ---------------------------------------------------------
-      - name: Build APK
+      # =========================================================
+      # 11. PREPARE BUILDOZER SDK
+      # =========================================================
+      - name: Prepare Buildozer Android SDK
         shell: bash
         run: |
+          BUILD_ROOT="$HOME/.buildozer/android/platform"
+          BUILD_SDK="$BUILD_ROOT/android-sdk"
+          SYSTEM_SDK="$ANDROID_SDK_ROOT"
+
+          mkdir -p "$BUILD_ROOT"
+
+          rm -rf "$BUILD_SDK"
+
+          mkdir -p "$BUILD_SDK"
+
+          echo ""
+          echo "======================================"
+          echo "LINKING ANDROID SDK"
+          echo "======================================"
+
+          for item in "$SYSTEM_SDK"/*; do
+            name="$(basename "$item")"
+
+            if [ "$name" != "tools" ]; then
+              ln -s "$item" "$BUILD_SDK/$name"
+            fi
+          done
+
+          # Old Buildozer expects this legacy path.
+          mkdir -p "$BUILD_SDK/tools/bin"
+
+          cat > "$BUILD_SDK/tools/bin/sdkmanager" <<EOF
+#!/bin/sh
+exec "$SYSTEM_SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SYSTEM_SDK" "\$@"
+EOF
+
+          chmod +x "$BUILD_SDK/tools/bin/sdkmanager"
+
+          echo ""
+          echo "Buildozer SDK:"
+          ls -lah "$BUILD_SDK"
+
+          echo ""
+          echo "Build Tools:"
+          ls -lah "$BUILD_SDK/build-tools/37.0.0"
+
+          echo ""
+          echo "SDK Manager:"
+          "$BUILD_SDK/tools/bin/sdkmanager" --version
+
+
+      # =========================================================
+      # 12. CONFIGURE P4A ENVIRONMENT
+      # =========================================================
+      - name: Configure python-for-android
+        shell: bash
+        run: |
+          P4A_DIR="$GITHUB_WORKSPACE/python-for-android"
+
+          echo "======================================"
+          echo "P4A CONFIGURATION"
+          echo "======================================"
+
+          echo "P4A_DIR=$P4A_DIR"
+
+          cd "$P4A_DIR"
+
+          git describe --tags --always
+
+          echo ""
+          echo "Python recipe:"
+
+          grep -n "version =" \
+            pythonforandroid/recipes/python3/__init__.py \
+            | head -5
+
+          echo ""
+          echo "P4A ready."
+
+
+      # =========================================================
+      # 13. VERIFY BUILDOZER SPEC
+      # =========================================================
+      - name: Verify Buildozer configuration
+        shell: bash
+        run: |
+          echo ""
+          echo "======================================"
+          echo "BUILD DIRECTORY"
+          echo "======================================"
+
+          pwd
+
+          echo ""
+          echo "======================================"
+          echo "BUILDOZER SPEC"
+          echo "======================================"
+
+          cat buildozer.spec
+
+          echo ""
+          echo "======================================"
+          echo "P4A VERSION"
+          echo "======================================"
+
+          grep -n "version =" \
+            "$GITHUB_WORKSPACE/python-for-android/pythonforandroid/recipes/python3/__init__.py" \
+            | head -5
+
+
+      # =========================================================
+      # 14. BUILD APK
+      # =========================================================
+      - name: Build APK
+        shell: bash
+        env:
+          P4A_SOURCE_DIR: /home/runner/work/MetevraWeather/MetevraWeather/python-for-android
+        run: |
+          echo ""
+          echo "======================================"
+          echo "STARTING METEVRA WEATHER BUILD"
+          echo "======================================"
+
+          echo ""
+          echo "Python:"
+          python --version
+
+          echo ""
+          echo "Java:"
+          java -version
+
+          echo ""
+          echo "Buildozer:"
+          buildozer --version
+
+          echo ""
+          echo "P4A:"
+          grep -n "version =" \
+            "$GITHUB_WORKSPACE/python-for-android/pythonforandroid/recipes/python3/__init__.py" \
+            | head -5
+
+          echo ""
+          echo "Starting Buildozer..."
+
           buildozer -v android debug
 
 
-      # ---------------------------------------------------------
-      # 14. Show generated files
-      # ---------------------------------------------------------
-      - name: List generated files
+      # =========================================================
+      # 15. FIND APK / AAB
+      # =========================================================
+      - name: Find generated files
         if: always()
         shell: bash
         run: |
           echo ""
-          echo "===== BIN DIRECTORY ====="
+          echo "======================================"
+          echo "GENERATED FILES"
+          echo "======================================"
 
-          ls -lah bin || true
-
-          echo ""
-          echo "===== APK FILES ====="
-
-          find . -type f \
+          find "$GITHUB_WORKSPACE" \
+            -type f \
             \( -name "*.apk" -o -name "*.aab" \) \
             -print || true
 
 
-      # ---------------------------------------------------------
-      # 15. Upload APK
-      # ---------------------------------------------------------
+      # =========================================================
+      # 16. UPLOAD APK
+      # =========================================================
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
