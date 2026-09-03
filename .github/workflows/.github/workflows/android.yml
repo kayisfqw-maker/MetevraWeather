@@ -12,7 +12,6 @@ jobs:
         working-directory: metevra_weather
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -21,16 +20,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Install system dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
-
           sudo apt-get install -y \
             build-essential \
             git \
@@ -48,49 +46,19 @@ jobs:
             cmake \
             rsync
 
-      - name: Setup Android SDK
+      - name: Setup Android
         uses: android-actions/setup-android@v3
 
       - name: Accept Android licenses
         run: |
           yes | sdkmanager --licenses || true
 
-      - name: Install Android SDK packages
+      - name: Install Android SDK
         run: |
           sdkmanager \
             "platform-tools" \
             "platforms;android-36" \
             "build-tools;37.0.0"
-
-      - name: Prepare Buildozer SDK
-        run: |
-          SYSTEM_SDK="$ANDROID_SDK_ROOT"
-          BUILD_SDK="$HOME/.buildozer/android/platform/android-sdk"
-
-          mkdir -p "$HOME/.buildozer/android/platform"
-
-          rm -rf "$BUILD_SDK"
-          mkdir -p "$BUILD_SDK"
-
-          for item in "$SYSTEM_SDK"/*; do
-            name="$(basename "$item")"
-
-            if [ "$name" != "tools" ]; then
-              ln -s "$item" "$BUILD_SDK/$name"
-            fi
-          done
-
-          mkdir -p "$BUILD_SDK/tools/bin"
-
-          cat > "$BUILD_SDK/tools/bin/sdkmanager" <<EOF
-#!/bin/sh
-exec "$SYSTEM_SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SYSTEM_SDK" "\$@"
-EOF
-
-          chmod +x "$BUILD_SDK/tools/bin/sdkmanager"
-
-          echo "SDKMANAGER:"
-          "$BUILD_SDK/tools/bin/sdkmanager" --version
 
       - name: Install Buildozer
         run: |
@@ -98,37 +66,32 @@ EOF
           python -m pip install buildozer==1.6.0
           python -m pip install cython==0.29.37
 
-      # IMPORTANT:
-      # Force Buildozer to use a compatible python-for-android release.
-      - name: Download compatible python-for-android
+      - name: Prepare pinned python-for-android
         run: |
-          rm -rf "$HOME/.buildozer/android/platform/python-for-android"
+          rm -rf "$GITHUB_WORKSPACE/python-for-android"
 
           git clone \
             --branch v2024.01.21 \
             --depth 1 \
             https://github.com/kivy/python-for-android.git \
-            "$HOME/.buildozer/android/platform/python-for-android"
-
-      - name: Verify python-for-android version
-        run: |
-          cd "$HOME/.buildozer/android/platform/python-for-android"
+            "$GITHUB_WORKSPACE/python-for-android"
 
           echo "===== P4A VERSION ====="
-          git describe --tags --always || true
+          cd "$GITHUB_WORKSPACE/python-for-android"
+          git describe --tags --always
 
           echo "===== PYTHON RECIPE ====="
-          grep -n "version =" pythonforandroid/recipes/python3/__init__.py | head -5
+          grep -n "version =" pythonforandroid/recipes/python3/__init__.py | head
 
-      - name: Clean old Buildozer platform
+      - name: Clean Buildozer
         run: |
-          rm -rf .buildozer/android/platform/build-arm64-v8a_armeabi-v7a
+          rm -rf .buildozer
 
       - name: Build APK
         run: |
           buildozer -v android debug
 
-      - name: List generated files
+      - name: Show generated APK
         if: always()
         run: |
           echo "===== BIN ====="
