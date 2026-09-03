@@ -150,7 +150,6 @@ jobs:
 
           echo "Python-for-Android OK"
 
-
       # ==========================================
       # FIX BUILDOZER SDK MANAGER
       # ==========================================
@@ -168,53 +167,39 @@ jobs:
           test -x "$SDKMANAGER"
 
           rm -rf "$BUILD_SDK"
-
           mkdir -p "$BUILD_SDK/tools/bin"
 
-          ln -s "$SYSTEM_SDK/platform-tools" \
-            "$BUILD_SDK/platform-tools"
+          ln -s "$SYSTEM_SDK/platform-tools" "$BUILD_SDK/platform-tools"
+          ln -s "$SYSTEM_SDK/platforms" "$BUILD_SDK/platforms"
+          ln -s "$SYSTEM_SDK/build-tools" "$BUILD_SDK/build-tools"
+          ln -s "$SYSTEM_SDK/ndk" "$BUILD_SDK/ndk"
+          ln -s "$SYSTEM_SDK/cmdline-tools" "$BUILD_SDK/cmdline-tools"
 
-          ln -s "$SYSTEM_SDK/platforms" \
-            "$BUILD_SDK/platforms"
-
-          ln -s "$SYSTEM_SDK/build-tools" \
-            "$BUILD_SDK/build-tools"
-
-          ln -s "$SYSTEM_SDK/ndk" \
-            "$BUILD_SDK/ndk"
-
-          ln -s "$SYSTEM_SDK/cmdline-tools" \
-            "$BUILD_SDK/cmdline-tools"
-
-          cat > "$BUILD_SDK/tools/bin/sdkmanager" <<'EOF'
-#!/bin/bash
-set -e
-
-SYSTEM_SDK="/usr/local/lib/android/sdk"
-
-REAL_SDKMANAGER="$SYSTEM_SDK/cmdline-tools/16.0/bin/sdkmanager"
-
-ARGS=()
-
-for arg in "$@"; do
-  case "$arg" in
-    --sdk_root=*)
-      ;;
-    *)
-      ARGS+=("$arg")
-      ;;
-  esac
-done
-
-exec "$REAL_SDKMANAGER" \
-  --sdk_root="$SYSTEM_SDK" \
-  "${ARGS[@]}"
-EOF
+          printf '%s\n' \
+            '#!/bin/bash' \
+            'set -e' \
+            '' \
+            'SYSTEM_SDK="/usr/local/lib/android/sdk"' \
+            'REAL_SDKMANAGER="$SYSTEM_SDK/cmdline-tools/16.0/bin/sdkmanager"' \
+            '' \
+            'ARGS=()' \
+            '' \
+            'for arg in "$@"; do' \
+            '  case "$arg" in' \
+            '    --sdk_root=*)' \
+            '      ;;' \
+            '    *)' \
+            '      ARGS+=("$arg")' \
+            '      ;;' \
+            '  esac' \
+            'done' \
+            '' \
+            'exec "$REAL_SDKMANAGER" --sdk_root="$SYSTEM_SDK" "${ARGS[@]}"' \
+            > "$BUILD_SDK/tools/bin/sdkmanager"
 
           chmod +x "$BUILD_SDK/tools/bin/sdkmanager"
 
           echo "Testing Buildozer SDK manager:"
-
           "$BUILD_SDK/tools/bin/sdkmanager" --version
 
           echo "Buildozer SDK manager OK"
