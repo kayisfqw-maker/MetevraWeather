@@ -1,0 +1,24 @@
+name: Build Metevra Weather Android
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build APK
+        uses: ArtemSBulgakov/buildozer-action@v1
+        with:
+          command: android debug
+          workdir: metevra_weather
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Metevra-Weather-APK
+          path: metevra_weather/bin/*.apk
