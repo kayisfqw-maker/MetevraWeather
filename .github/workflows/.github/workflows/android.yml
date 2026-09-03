@@ -36,16 +36,26 @@ jobs:
             zlib1g-dev \
             libncurses5-dev \
             libncursesw5-dev \
-            libtinfo5 \
-            cmake \
             libffi-dev \
-            libssl-dev
+            libssl-dev \
+            cmake
 
-      - name: Install Python build tools
+      - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip
           python -m pip install buildozer==1.6.0
           python -m pip install cython==0.29.37
+
+      - name: Prepare Android SDK licenses
+        run: |
+          mkdir -p "$HOME/.android"
+          mkdir -p "$HOME/.buildozer/android/platform/android-sdk/licenses"
+
+          echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > \
+            "$HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license"
+
+          echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> \
+            "$HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license"
 
       - name: Build APK
         run: |
