@@ -132,7 +132,71 @@ jobs:
           python -m pip install \
             buildozer==1.6.0 \
             cython==0.29.37
+      - name: Install Buildozer
+        run: |
+          python -m pip install --upgrade pip
 
+          python -m pip install \
+            buildozer==1.6.0 \
+            cython==0.29.37
+
+      # BURAYA GELECEK
+      - name: Fix Buildozer SDK Manager
+        run: |
+          set -e
+
+          BUILD_SDK="$HOME/.buildozer/android/platform/android-sdk"
+          SYSTEM_SDK="/usr/local/lib/android/sdk"
+          SDKMANAGER="$SYSTEM_SDK/cmdline-tools/16.0/bin/sdkmanager"
+
+          echo "System SDK: $SYSTEM_SDK"
+          echo "SDK Manager: $SDKMANAGER"
+
+          test -x "$SDKMANAGER"
+
+          rm -rf "$BUILD_SDK"
+          mkdir -p "$BUILD_SDK/tools/bin"
+
+          ln -s "$SYSTEM_SDK/platform-tools" "$BUILD_SDK/platform-tools"
+          ln -s "$SYSTEM_SDK/platforms" "$BUILD_SDK/platforms"
+          ln -s "$SYSTEM_SDK/build-tools" "$BUILD_SDK/build-tools"
+          ln -s "$SYSTEM_SDK/ndk" "$BUILD_SDK/ndk"
+          ln -s "$SYSTEM_SDK/cmdline-tools" "$BUILD_SDK/cmdline-tools"
+
+          cat > "$BUILD_SDK/tools/bin/sdkmanager" <<'EOF'
+          #!/bin/bash
+          set -e
+
+          SYSTEM_SDK="/usr/local/lib/android/sdk"
+          REAL_SDKMANAGER="$SYSTEM_SDK/cmdline-tools/16.0/bin/sdkmanager"
+
+          ARGS=()
+
+          for arg in "$@"; do
+            case "$arg" in
+              --sdk_root=*)
+                ;;
+              *)
+                ARGS+=("$arg")
+                ;;
+            esac
+          done
+
+          exec "$REAL_SDKMANAGER" \
+            --sdk_root="$SYSTEM_SDK" \
+            "${ARGS[@]}"
+          EOF
+
+          chmod +x "$BUILD_SDK/tools/bin/sdkmanager"
+
+          echo "Testing Buildozer SDK manager:"
+          "$BUILD_SDK/tools/bin/sdkmanager" --version
+
+
+      - name: Build APK
+        working-directory: metevra_weather
+        run: |
+          buildozer android debug
 
       # =========================================================
       # PYTHON-FOR-ANDROID
